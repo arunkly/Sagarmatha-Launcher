@@ -1859,7 +1859,7 @@ _new_home = r'''
     }
 
 '''
-_source = _source.substring(0, _home_start) + _new_home + _source.substring(_home_end)
+_source = _source[:_home_start] + _new_home + _source[_home_end:]
 
 # Center the date pill and show the Bikram Sambat date in Devanagari in Nepali mode.
 _date_start = _source.find("    private fun updateDateText() {")
@@ -1877,7 +1877,7 @@ _new_date = '''    private fun updateDateText() {
     }
 
 '''
-_source = _source.substring(0, _date_start) + _new_date + _source.substring(_date_end)
+_source = _source[:_date_start] + _new_date + _source[_date_end:]
 _source = _source.replace(
     'clockView?.text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())',
     'clockView?.text = formatSagarmathaClock()'
