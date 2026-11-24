@@ -206,3 +206,71 @@ gradle_text = gradle_text.replace('versionName = "1.5.0"', 'versionName = "1.6.1
 app_gradle.write_text(gradle_text)
 
 print("Added LAUNCHER intent category and incremented app version to 1.6.1.")
+
+
+# Correct edge-to-edge system bar spacing on Android 15+ and older Android.
+# Keep launcher branding and controls below the notification/status bar.
+main_file = root / "app/src/main/java/np/sagarmatha/launcher/MainActivity.kt"
+source = main_file.read_text()
+old_padding = "            setPadding(dp(20), dp(16), dp(20), dp(12))"
+new_padding = """            setPadding(dp(20), dp(16), dp(20), dp(12))
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(
+                    dp(20),
+                    dp(16) + insets.systemWindowInsetTop,
+                    dp(20),
+                    dp(12) + insets.systemWindowInsetBottom
+                )
+                insets
+            }"""
+if new_padding not in source:
+    if old_padding not in source:
+        raise SystemExit("Home root padding anchor not found; refusing to patch status bar layout")
+    source = source.replace(old_padding, new_padding, 1)
+
+# Remove the text navigation footer and replace it with one clear app-drawer button.
+footer_start = source.find('        val bottom = TextView(this).apply {')
+footer_end_marker = '        root.addView(bottom)'
+footer_end = source.find(footer_end_marker, footer_start)
+if footer_start < 0 or footer_end < 0:
+    raise SystemExit("Home footer anchor not found; refusing to patch app drawer shortcut")
+footer_end += len(footer_end_marker)
+footer = """        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(7), 0, dp(2))
+        }
+        val appDrawerButton = TextView(this).apply {
+            text = "▦"
+            textSize = 27f
+            setTextColor(theme.text)
+            gravity = Gravity.CENTER
+            contentDescription = if (nepaliMode) "एप ड्रअर खोल्नुहोस्" else "Open app drawer"
+            background = rounded(Color.argb(58, 255, 255, 255), 18)
+            setOnClickListener { showDrawer("") }
+        }
+        footer.addView(appDrawerButton, LinearLayout.LayoutParams(dp(54), dp(42)))
+        root.addView(footer, LinearLayout.LayoutParams(-1, dp(48)))"""
+source = source[:footer_start] + footer + source[footer_end:]
+
+# Keep system status/navigation bars coordinated with the active launcher theme.
+source = source.replace(
+    '        window.navigationBarColor = theme.background\\n',
+    '        window.navigationBarColor = theme.background\\n        window.statusBarColor = theme.background\\n'
+)
+main_file.write_text(source)
+
+# Increment the build version so this UI correction installs as a distinct update.
+app_gradle = root / "app/build.gradle.kts"
+gradle_text = app_gradle.read_text()
+gradle_text = gradle_text.replace("versionCode = 5", "versionCode = 7")
+gradle_text = gradle_text.replace('versionName = "1.5.0"', 'versionName = "1.6.2"')
+app_gradle.write_text(gradle_text)
+
+# Fail the preparation step if the old footer survived or the inset handler is missing.
+check = main_file.read_text()
+if 'val bottom = TextView(this).apply {' in check:
+    raise SystemExit("Old text footer is still present")
+if 'setOnApplyWindowInsetsListener' not in check or 'appDrawerButton' not in check:
+    raise SystemExit("Status bar or app drawer footer patch did not apply")
+print("System bar spacing and app drawer footer patch applied.")
