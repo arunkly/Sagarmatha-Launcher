@@ -201,11 +201,11 @@ manifest.write_text(manifest_text)
 # Increment app version so Android treats this as a newer install/update.
 app_gradle = root / "app/build.gradle.kts"
 gradle_text = app_gradle.read_text()
-gradle_text = gradle_text.replace("versionCode = 5", "versionCode = 6")
-gradle_text = gradle_text.replace('versionName = "1.5.0"', 'versionName = "1.6.1"')
+gradle_text = gradle_text.replace("versionCode = 5", "versionCode = 7")
+gradle_text = gradle_text.replace('versionName = "1.5.0"', 'versionName = "1.6.2"')
 app_gradle.write_text(gradle_text)
 
-print("Added LAUNCHER intent category and incremented app version to 1.6.1.")
+print("Added LAUNCHER intent category and incremented app version to 1.6.2.")
 
 
 # Correct edge-to-edge system bar spacing on Android 15+ and older Android.
@@ -255,8 +255,8 @@ source = source[:footer_start] + footer + source[footer_end:]
 
 # Keep system status/navigation bars coordinated with the active launcher theme.
 source = source.replace(
-    '        window.navigationBarColor = theme.background\\n',
-    '        window.navigationBarColor = theme.background\\n        window.statusBarColor = theme.background\\n'
+    '        window.navigationBarColor = theme.background\n',
+    '        window.navigationBarColor = theme.background\n        window.statusBarColor = theme.background\n'
 )
 main_file.write_text(source)
 
