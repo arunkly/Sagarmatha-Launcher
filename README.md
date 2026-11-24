@@ -1,19 +1,13 @@
 # Sagarmatha Launcher
 
-Android launcher project (Phase 5, version 1.5.0).
+Android launcher project, Phase 5 (version 1.5.0).
 
-## Source upload required
+## Project source
 
-Upload the project archive named exactly:
-
-`Sagarmatha-Launcher-Phase5-Android-Studio-Project.zip`
-
-to the repository root. The archive must contain `settings.gradle.kts` and `app/build.gradle.kts` at its root.
+The Phase 5 Android Studio project archive is stored in two Base64 parts under `upload-parts/`. GitHub Actions joins and decodes these parts into the original ZIP, validates the archive, and extracts the Android project before building.
 
 ## Build APK
 
-GitHub Actions workflow: **Android APK Build**.
+Open **Actions → Android APK Build** to view the build. The workflow runs `gradle assembleDebug` with JDK 17 and uploads the resulting debug APK as an Actions artifact.
 
-After the ZIP is pushed to `main`, the workflow extracts the Android Studio project, runs `gradle assembleDebug`, and publishes the debug APK as an Actions artifact.
-
-Note: The project has not yet been compiled or device-tested in this environment. The first GitHub Actions build will provide the actual compile result.
+The project has not been compiled or device-tested locally. Treat the first Actions run as the authoritative compile check.
