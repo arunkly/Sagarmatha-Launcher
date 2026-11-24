@@ -960,3 +960,314 @@ gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 12", gradle_text, 
 gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.9.0"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("Phase 2: premium home hero panel, quick actions and refreshed home section heading; version 1.9.0.")
+
+
+# Phase 2.1: practical, scroll-first Nepali home and functional settings control center.
+home_method = r'''
+    private fun renderHome() {
+        showingDrawer = false
+        handler.removeCallbacks(clockTick)
+        window.statusBarColor = theme.background
+        window.navigationBarColor = theme.background
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+            background = homeBackground()
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(dp(18), dp(8) + insets.systemWindowInsetTop, dp(18), dp(8) + insets.systemWindowInsetBottom)
+                insets
+            }
+        }
+
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL }
+        brand.addView(TextView(this).apply {
+            text = "🇳🇵  SAGARMATHA"; textSize = 14f; letterSpacing = .14f
+            setTextColor(theme.accent); typeface = Typeface.DEFAULT_BOLD
+        })
+        brand.addView(TextView(this).apply {
+            text = if (nepaliMode) "तपाईंको फोन, तपाईंको शैली" else "Your phone, your style"
+            textSize = 10f; setTextColor(theme.muted)
+        })
+        header.addView(brand, LinearLayout.LayoutParams(0, dp(48), 1f))
+
+        fun headerAction(glyph: String, description: String, action: () -> Unit): TextView =
+            TextView(this).apply {
+                text = glyph; contentDescription = description; textSize = 20f
+                gravity = Gravity.CENTER; setTextColor(theme.accent)
+                background = rounded(Color.argb(24, 255, 255, 255), 15)
+                layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)).apply { leftMargin = dp(7) }
+                setOnClickListener { action() }
+            }
+        header.addView(headerAction(if (nepaliMode) "ने" else "EN", "Switch language") {
+            nepaliMode = !nepaliMode; savePreferences(); renderHome()
+        })
+        header.addView(headerAction("▦", "Manage widgets") { showWidgetManager() })
+        header.addView(headerAction("⚙", "Settings") { showSettingsScreen() })
+        root.addView(header)
+
+        val dateBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(12), dp(2), dp(12))
+        }
+        clockView = TextView(this).apply {
+            text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())
+            textSize = 42f; setTextColor(theme.text)
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        }
+        dateBlock.addView(clockView)
+        dateView = TextView(this).apply { textSize = 12f; setTextColor(theme.muted); setPadding(0, dp(2), 0, 0) }
+        dateBlock.addView(dateView)
+        updateDateText()
+        root.addView(dateBlock)
+
+        val search = EditText(this).apply {
+            hint = if (nepaliMode) "एप वा केही खोज्नुहोस्" else "Search apps"
+            setHintTextColor(Color.argb(170, theme.muted)); setTextColor(theme.text); textSize = 14f
+            setSingleLine(true); setPadding(dp(16), 0, dp(14), 0)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(34, 255, 255, 255)); cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), Color.argb(70, 225, 177, 91))
+            }
+            setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_search, 0, 0, 0)
+            compoundDrawablePadding = dp(10)
+            setOnFocusChangeListener { _, focused -> if (focused) showDrawer("") }
+            setOnEditorActionListener { _, _, _ -> showDrawer(text.toString()); true }
+            setOnClickListener { showDrawer("") }
+        }
+        root.addView(search, LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(12) })
+
+        val contentScroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val sectionHeader = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        sectionHeader.addView(TextView(this).apply {
+            text = if (nepaliMode) "आजको झलक" else "TODAY AT A GLANCE"
+            textSize = 11f; letterSpacing = .10f; setTextColor(theme.accent); typeface = Typeface.DEFAULT_BOLD
+        }, LinearLayout.LayoutParams(0, dp(34), 1f))
+        sectionHeader.addView(TextView(this).apply {
+            text = if (nepaliMode) "सम्पादन" else "EDIT"
+            textSize = 10f; setTextColor(theme.accent); setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = rounded(Color.argb(24, 255, 255, 255), 12)
+            setOnClickListener { showSettingsScreen() }
+        })
+        content.addView(sectionHeader)
+
+        val nepaliDate = runCatching { NepaliCalendarService.todayNepali(nepaliMode) }
+            .getOrElse { if (nepaliMode) "नेपाली मिति उपलब्ध भएन" else "Nepali date unavailable" }
+        val englishDate = runCatching { NepaliCalendarService.todayEnglish() }
+            .getOrElse { SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH).format(Date()) }
+        content.addView(widgetCard(if (nepaliMode) "आजको पात्रो" else "TODAY'S CALENDAR", nepaliDate, englishDate, "calendar"))
+        content.addView(buildWeatherCard())
+        content.addView(buildNewsCard())
+
+        if (appFolders.isNotEmpty()) {
+            content.addView(TextView(this).apply {
+                text = if (nepaliMode) "मेरा फोल्डरहरू" else "MY FOLDERS"
+                textSize = 11f; setTextColor(theme.accent); setPadding(dp(2), dp(8), 0, dp(7))
+            })
+            val folderRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            appFolders.forEach { folder ->
+                folderRow.addView(TextView(this).apply {
+                    text = "▣  " + folder.name; textSize = 12f; setTextColor(theme.text)
+                    background = panel(); setPadding(dp(12), dp(10), dp(12), dp(10))
+                    setOnClickListener { openFolder(folder) }
+                    setOnLongClickListener { confirmDeleteFolder(folder); true }
+                }, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(8) })
+            }
+            content.addView(folderRow)
+        }
+
+        hostedWidgetIds.forEach { id ->
+            val hosted = widgetViews[id] ?: createWidgetHostView(id)
+            if (hosted != null) {
+                (hosted.parent as? ViewGroup)?.removeView(hosted)
+                val holder = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL; background = panel()
+                    setPadding(dp(5), dp(5), dp(5), dp(5))
+                }
+                holder.addView(hosted, LinearLayout.LayoutParams(-1, dp(widgetHeightDp)))
+                content.addView(holder, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(4) })
+            }
+        }
+        contentScroll.addView(content)
+        root.addView(contentScroll, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val dock = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.argb(38, 255, 255, 255)); cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.argb(48, 255, 255, 255))
+            }
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+            setOnDragListener { _, event ->
+                if (event.action == android.view.DragEvent.ACTION_DROP) {
+                    val dragged = event.clipData?.getItemAt(0)?.text?.toString()
+                    val targetIndex = ((event.x / width.coerceAtLeast(1)) * favorites.size)
+                        .toInt().coerceIn(0, (favorites.size - 1).coerceAtLeast(0))
+                    if (!dragged.isNullOrBlank() && favorites.contains(dragged)) {
+                        favorites.remove(dragged); favorites.add(targetIndex.coerceAtMost(favorites.size), dragged)
+                        savePreferences(); renderHome()
+                    }
+                    true
+                } else event.action == android.view.DragEvent.ACTION_DRAG_STARTED
+            }
+        }
+        favorites.mapNotNull { pkg -> appList.find { it.packageName == pkg } }.take(5).forEach { app ->
+            val tile = appTile(app, true)
+            tile.setOnLongClickListener {
+                val clip = ClipData.newPlainText("favorite-package", app.packageName)
+                tile.startDragAndDrop(clip, View.DragShadowBuilder(tile), null, 0)
+                true
+            }
+            dock.addView(tile, LinearLayout.LayoutParams(0, dp(62), 1f))
+        }
+        root.addView(dock, LinearLayout.LayoutParams(-1, dp(70)).apply { topMargin = dp(10) })
+        setContentView(root)
+        handler.post(clockTick)
+    }
+
+'''
+start_token = "    private fun renderHome() {"
+end_token = "    private fun updateDateText() {"
+start = source.find(start_token)
+end = source.find(end_token, start)
+if start < 0 or end < 0:
+    raise SystemExit("Could not safely locate renderHome() boundaries")
+source = source[:start] + home_method + source[end:]
+
+bg_method = r'''
+    private fun homeBackground(): android.graphics.drawable.Drawable {
+        if (customWallpaperUri.isNotBlank()) runCatching {
+            val stream = contentResolver.openInputStream(Uri.parse(customWallpaperUri))
+            val bitmap = stream?.use { BitmapFactory.decodeStream(it) }
+            if (bitmap != null) return BitmapDrawable(resources, bitmap)
+        }
+        val lower = when (wallpaperIndex) {
+            1 -> Color.rgb(31, 56, 83)
+            2 -> Color.rgb(24, 67, 59)
+            3 -> Color.rgb(66, 56, 44)
+            else -> theme.secondary
+        }
+        return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(theme.background, lower))
+    }
+
+'''
+bg_start = source.find("    private fun homeBackground():")
+bg_end = source.find("    private fun showAppearance()", bg_start)
+if bg_start < 0 or bg_end < 0:
+    raise SystemExit("Could not safely locate homeBackground() boundaries")
+source = source[:bg_start] + bg_method + source[bg_end:]
+
+settings_method = r'''
+    private fun showSettingsScreen() {
+        showingDrawer = true
+        handler.removeCallbacks(clockTick)
+        window.statusBarColor = theme.background
+        window.navigationBarColor = theme.background
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(8), dp(18), dp(8))
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(theme.background, theme.secondary))
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(dp(18), dp(8) + insets.systemWindowInsetTop, dp(18), dp(8) + insets.systemWindowInsetBottom)
+                insets
+            }
+        }
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        header.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = if (nepaliMode) "सेटिङहरू" else "Settings"
+                textSize = 25f; setTextColor(theme.text); typeface = Typeface.DEFAULT_BOLD
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = if (nepaliMode) "आफ्नो Launcher आफूअनुसार मिलाउनुहोस्" else "Make your launcher work your way"
+                textSize = 11f; setTextColor(theme.muted)
+            })
+        }, LinearLayout.LayoutParams(0, dp(58), 1f))
+        header.addView(TextView(this).apply {
+            text = "✕"; textSize = 21f; setTextColor(theme.text); gravity = Gravity.CENTER
+            background = rounded(Color.argb(28, 255, 255, 255), 14)
+            setOnClickListener { renderHome() }
+        }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        root.addView(header)
+
+        val scroll = ScrollView(this).apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        fun section(title: String) {
+            list.addView(TextView(this).apply {
+                text = title; textSize = 10f; letterSpacing = .12f; setTextColor(theme.accent)
+                typeface = Typeface.DEFAULT_BOLD; setPadding(dp(3), dp(18), 0, dp(8))
+            })
+        }
+        fun setting(title: String, subtitle: String, glyph: String, action: () -> Unit) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(28, 255, 255, 255)); cornerRadius = dp(17).toFloat()
+                    setStroke(dp(1), Color.argb(35, 255, 255, 255))
+                }
+                setPadding(dp(12), dp(9), dp(12), dp(9))
+                isClickable = true; isFocusable = true
+                setOnClickListener { action() }
+            }
+            row.addView(TextView(this).apply {
+                text = glyph; textSize = 21f; gravity = Gravity.CENTER; setTextColor(theme.accent)
+                background = rounded(Color.argb(28, 225, 177, 91), 13)
+            }, LinearLayout.LayoutParams(dp(42), dp(42)))
+            val labels = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), 0, dp(4), 0) }
+            labels.addView(TextView(this).apply {
+                text = title; textSize = 13f; setTextColor(theme.text); typeface = Typeface.DEFAULT_BOLD
+            })
+            labels.addView(TextView(this).apply {
+                text = subtitle; textSize = 10f; setTextColor(theme.muted); maxLines = 2
+            })
+            row.addView(labels, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(TextView(this).apply {
+                text = "›"; textSize = 22f; setTextColor(theme.accent); gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(dp(22), dp(42)))
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        }
+
+        section(if (nepaliMode) "देखावट" else "PERSONALIZATION")
+        setting(if (nepaliMode) "थिम र वालपेपर" else "Theme & wallpaper",
+            if (nepaliMode) "रङ, वालपेपर र आइकन शैली" else "Colors, wallpaper and icon style", "◐") { showAppearance() }
+
+        section(if (nepaliMode) "होम स्क्रिन" else "HOME SCREEN")
+        setting(if (nepaliMode) "डक व्यवस्थापन" else "Dock management",
+            if (nepaliMode) "एप थप्नुहोस्, हटाउनुहोस् र क्रम मिलाउनुहोस्" else "Add, remove and reorder favorite apps", "▤") { showDockManager() }
+        setting(if (nepaliMode) "विजेट व्यवस्थापन" else "Widget management",
+            if (nepaliMode) "Android विजेट थप्नुहोस् र हटाउनुहोस्" else "Add and remove Android widgets", "▦") { showWidgetManager() }
+        setting(if (nepaliMode) "फोल्डर व्यवस्थापन" else "Folder management",
+            if (nepaliMode) "एप फोल्डर बनाउनुहोस् र मिलाउनुहोस्" else "Create and organize app folders", "▣") { showFolderManager() }
+
+        section(if (nepaliMode) "एप र भाषा" else "APPS & LANGUAGE")
+        setting(if (nepaliMode) "एप ड्रअर" else "App drawer",
+            if (nepaliMode) "सबै एप, खोज र श्रेणी" else "All apps, search and categories", "⊞") { showDrawer("") }
+        setting(if (nepaliMode) "भाषा" else "Language",
+            if (nepaliMode) "हालको भाषा: नेपाली" else "Current language: English", "अ") {
+            nepaliMode = !nepaliMode; savePreferences(); showSettingsScreen()
+        }
+
+        section(if (nepaliMode) "सेवाहरू" else "SERVICES")
+        setting(if (nepaliMode) "मौसम र समाचार" else "Weather & news",
+            if (nepaliMode) "मौसम स्थान र RSS समाचार फिड" else "Weather location and RSS news feed", "☼") { showDataSettings() }
+
+        scroll.addView(list)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(root)
+    }
+
+'''
+settings_start = source.find("    private fun showSettingsScreen() {")
+settings_end = source.find("    private fun showDockManager()", settings_start)
+if settings_start < 0 or settings_end < 0:
+    raise SystemExit("Could not safely locate showSettingsScreen() boundaries")
+source = source[:settings_start] + settings_method + source[settings_end:]
+
+main_file.write_text(source)
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 13", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "2.0.0"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("Sagarmatha Launcher v2.0.0: practical navy/gold home and settings UI applied.")
