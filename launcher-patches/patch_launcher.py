@@ -167,3 +167,31 @@ st=styles.read_text().replace('''        <item name="android:windowBackground">#
         <item name="android:windowSplashScreenIconBackgroundColor">#173653</item>''')
 styles.write_text(st)
 print("Launcher settings, photo wallpaper, dock management and icon metadata patched.")
+
+# Register this application in the regular app drawer as well as as a HOME app.
+manifest = root / "app/src/main/AndroidManifest.xml"
+manifest_text = manifest.read_text()
+launcher_category = '<category android:name="android.intent.category.LAUNCHER" />'
+home_category = '<category android:name="android.intent.category.HOME" />'
+if launcher_category not in manifest_text:
+    if home_category not in manifest_text:
+        raise SystemExit("HOME category missing; cannot safely add launcher entry")
+    manifest_text = manifest_text.replace(
+        home_category,
+        home_category + '\\n            ' + launcher_category
+    )
+if 'android:icon="@mipmap/ic_launcher"' not in manifest_text:
+    manifest_text = manifest_text.replace(
+        'android:label="Sagarmatha Launcher"',
+        'android:label="Sagarmatha Launcher"\\n        android:icon="@mipmap/ic_launcher"\\n        android:roundIcon="@mipmap/ic_launcher_round"'
+    )
+manifest.write_text(manifest_text)
+
+# Increment app version so Android treats this as a newer install/update.
+app_gradle = root / "app/build.gradle.kts"
+gradle_text = app_gradle.read_text()
+gradle_text = gradle_text.replace("versionCode = 5", "versionCode = 6")
+gradle_text = gradle_text.replace('versionName = "1.5.0"', 'versionName = "1.6.1"')
+app_gradle.write_text(gradle_text)
+
+print("Added LAUNCHER intent category and incremented app version to 1.6.1.")
