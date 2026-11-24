@@ -1,0 +1,41 @@
+name: Inspect Sagarmatha Source
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/inspect-source.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct original Phase 5 project
+        run: |
+          cat upload-parts/part01.b64 upload-parts/part02.b64 | base64 -d > phase5.zip
+          unzip -tq phase5.zip
+          unzip -q phase5.zip -d source
+          echo "=== PROJECT FILES ==="
+          find source -type f -maxdepth 12 | sort
+          echo "=== ROOT GRADLE ==="
+          cat source/build.gradle.kts
+          echo "=== APP GRADLE ==="
+          cat source/app/build.gradle.kts
+          echo "=== SETTINGS ==="
+          cat source/settings.gradle.kts
+          echo "=== KOTLIN SOURCE ==="
+          find source/app/src/main/java -name '*.kt' -print -exec sh -c 'echo "----- $1"; cat "$1"' _ {} \;
+      - name: Upload untouched source for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sagarmatha-Phase5-untouched-source
+          path: |
+            phase5.zip
+            source/
+          if-no-files-found: warn
