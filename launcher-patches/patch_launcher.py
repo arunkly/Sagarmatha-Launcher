@@ -800,3 +800,76 @@ gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 10", gradle_tex
 gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "1.8.0"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("Sagarmatha Launcher Phase 1 architecture foundation applied; version 1.8.0.")
+
+
+# Phase 1.1 reliability fix: enumerate launchable installed apps using Android package visibility.
+manifest_file = root / "app/src/main/AndroidManifest.xml"
+manifest_text = manifest_file.read_text()
+query_permission = '    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />'
+if "android.permission.QUERY_ALL_PACKAGES" not in manifest_text:
+    manifest_text = manifest_text.replace(
+        '    <uses-permission android:name="android.permission.INTERNET" />',
+        '    <uses-permission android:name="android.permission.INTERNET" />\n' + query_permission,
+        1
+    )
+manifest_file.write_text(manifest_text)
+
+repository_file = root / "app/src/main/java/np/sagarmatha/launcher/LauncherAppRepository.kt"
+repository_file.write_text("""package np.sagarmatha.launcher
+
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+
+/**
+ * Lists apps that Android can actually launch.
+ * QUERY_ALL_PACKAGES is declared because discovering installed launchers is the core
+ * function of this home-screen replacement.
+ */
+class LauncherAppRepository(private val context: Context) {
+    fun loadApps(): List<LaunchApp> {
+        val pm = context.packageManager
+        val installed = if (Build.VERSION.SDK_INT >= 33) {
+            pm.getInstalledApplications(PackageManager.ApplicationInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            pm.getInstalledApplications(0)
+        }
+
+        val apps = installed.mapNotNull { info ->
+            val launchIntent = runCatching { pm.getLaunchIntentForPackage(info.packageName) }.getOrNull()
+                ?: return@mapNotNull null
+            runCatching {
+                LaunchApp(
+                    pm.getApplicationLabel(info).toString(),
+                    info.packageName,
+                    pm.getApplicationIcon(info)
+                )
+            }.getOrNull()
+        }.distinctBy { it.packageName }.toMutableList()
+
+        // Ensure the launcher itself is available in its own app drawer.
+        if (apps.none { it.packageName == context.packageName }) {
+            runCatching {
+                val ownInfo = pm.getApplicationInfo(context.packageName, 0)
+                apps.add(
+                    LaunchApp(
+                        pm.getApplicationLabel(ownInfo).toString(),
+                        context.packageName,
+                        pm.getApplicationIcon(ownInfo)
+                    )
+                )
+            }
+        }
+        return apps.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label.trim() })
+    }
+}
+""")
+
+# Ensure version increments are applied to the generated Android project.
+app_gradle = root / "app/build.gradle.kts"
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 11", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.8.1"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("Phase 1.1: robust installed-app discovery, package visibility permission, version 1.8.1.")
