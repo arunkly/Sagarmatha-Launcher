@@ -6,6 +6,7 @@ on:
     paths:
       - 'upload-parts/**'
       - 'launcher-patches/**'
+      - 'android-project/app/src/main/res/**'
       - '.github/workflows/android-apk.yml'
       - '.github/scripts/prepare_project.py'
   workflow_dispatch:
