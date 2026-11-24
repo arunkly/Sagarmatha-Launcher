@@ -873,3 +873,90 @@ gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 11", gradle_text, 
 gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.8.1"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("Phase 1.1: robust installed-app discovery, package visibility permission, version 1.8.1.")
+
+
+# Phase 2: visible Home Screen refresh (premium hero panel + contextual shortcuts).
+home_source = main_file.read_text()
+hero_anchor = "        clockView = TextView(this).apply {"
+hero_block = """        val heroPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(34, 72, 119), Color.rgb(22, 48, 83), Color.rgb(17, 39, 65))
+            ).apply {
+                cornerRadius = dp(26).toFloat()
+                setStroke(dp(1), Color.argb(70, 255, 255, 255))
+            }
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            elevation = dp(3).toFloat()
+        }
+"""
+if hero_anchor not in home_source:
+    raise SystemExit("Phase 2: clock anchor not found; no home UI changes applied")
+if "val heroPanel = LinearLayout(this)" not in home_source:
+    home_source = home_source.replace(hero_anchor, hero_block + hero_anchor, 1)
+home_source = home_source.replace("        root.addView(clockView)\n", "        heroPanel.addView(clockView)\n", 1)
+home_source = home_source.replace("        root.addView(dateView)\n", "        heroPanel.addView(dateView)\n", 1)
+home_source = home_source.replace("        root.addView(tagline)\n", """        heroPanel.addView(tagline)
+        root.addView(heroPanel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+""", 1)
+
+search_anchor = "        root.addView(search, LinearLayout.LayoutParams(-1, dp(46)))"
+quick_actions = """
+        val quickActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, dp(4))
+        }
+        fun quickAction(label: String, symbol: String, action: () -> Unit) {
+            val chip = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                background = rounded(Color.argb(48, 255, 255, 255), 16)
+                setPadding(dp(9), dp(8), dp(9), dp(8))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { action() }
+            }
+            chip.addView(TextView(this).apply {
+                text = symbol
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setTextColor(theme.accent)
+            })
+            chip.addView(TextView(this).apply {
+                text = label
+                textSize = 10f
+                gravity = Gravity.CENTER
+                setTextColor(theme.text)
+                maxLines = 1
+            })
+            quickActions.addView(chip, LinearLayout.LayoutParams(0, dp(58), 1f).apply {
+                leftMargin = dp(3); rightMargin = dp(3)
+            })
+        }
+        quickAction(if (nepaliMode) "पात्रो" else "Calendar", "▦") { showDataSettings() }
+        quickAction(if (nepaliMode) "विजेट" else "Widgets", "▤") { showWidgetManager() }
+        quickAction(if (nepaliMode) "एपहरू" else "Apps", "⌕") { showDrawer("") }
+        quickAction(if (nepaliMode) "सेटिङ" else "Settings", "⚙") { showSettingsScreen() }
+        root.addView(quickActions, LinearLayout.LayoutParams(-1, dp(70)))
+"""
+if search_anchor not in home_source:
+    raise SystemExit("Phase 2: search view anchor not found; no home UI changes applied")
+if "val quickActions = LinearLayout(this)" not in home_source:
+    home_source = home_source.replace(search_anchor, search_anchor + "\n" + quick_actions, 1)
+
+home_source = home_source.replace(
+    'text = if (nepaliMode) "नेपालका लागि स्मार्ट विजेटहरू" else "SMART NEPALI WIDGETS"',
+    'text = if (nepaliMode) "तपाईंको दिन — एकै नजरमा" else "YOUR DAY AT A GLANCE"',
+    1
+)
+main_file.write_text(home_source)
+
+# Distinct visible release version for Phase 2.
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 12", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.9.0"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("Phase 2: premium home hero panel, quick actions and refreshed home section heading; version 1.9.0.")
