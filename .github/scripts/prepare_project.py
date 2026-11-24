@@ -99,3 +99,5 @@ exec(compile(_feature_patch.read_text(), str(_feature_patch), "exec"), {})
 # Trigger rebuild after fixing v2.0.1 patch script quoting.
 
 # Trigger the approved v2.1.0 Himalayan home-screen redesign build.
+
+# Rebuild after adding the legacy clock ticker alias for v2.1.0.
