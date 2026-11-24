@@ -50,6 +50,27 @@ jobs:
           if old not in s:
               raise SystemExit("Expected android/kotlinOptions block not found; refusing an unsafe edit")
           p.write_text(s.replace(old, new, 1))
+
+          # Use the Android-specific published artifact (2.6.2).
+          app_gradle = Path("android-project/app/build.gradle.kts")
+          gs = app_gradle.read_text()
+          gs = gs.replace("io.github.shivathapaa:nepali-date-picker:2.6.2", "io.github.shivathapaa:nepali-date-picker-android:2.6.2")
+          app_gradle.write_text(gs)
+
+          # Correct EditText single-line calls and remove the non-public widget-host extra.
+          main = Path("android-project/app/src/main/java/np/sagarmatha/launcher/MainActivity.kt")
+          ms = main.read_text()
+          ms = ms.replace("singleLine = true", "setSingleLine(true)")
+          ms = ms.replace('            putExtra(AppWidgetManager.EXTRA_APPWIDGET_HOST_ID, widgetHostId)\\n', "")
+          main.write_text(ms)
+
+          # Provide the English calendar label using the Android/JDK date formatter.
+          service = Path("android-project/app/src/main/java/np/sagarmatha/launcher/NepaliCalendarService.kt")
+          cs = service.read_text()
+          cs = cs.replace("import dev.shivathapaa.nepalidatepickerkmp.NameFormat\\n", "import dev.shivathapaa.nepalidatepickerkmp.NameFormat\\nimport java.text.SimpleDateFormat\\nimport java.util.Date\\nimport java.util.Locale\\n")
+          if "fun todayEnglish()" not in cs:
+              cs = cs.replace("    fun todayNepali(nepali: Boolean): String {", '    fun todayEnglish(): String = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH).format(Date())\\n\\n    fun todayNepali(nepali: Boolean): String {')
+          service.write_text(cs)
           PY
       - name: Install Android SDK platform 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
