@@ -274,3 +274,83 @@ if 'val bottom = TextView(this).apply {' in check:
 if 'setOnApplyWindowInsetsListener' not in check or 'appDrawerButton' not in check:
     raise SystemExit("Status bar or app drawer footer patch did not apply")
 print("System bar spacing and app drawer footer patch applied.")
+
+
+# Gesture-first app drawer: remove the visible footer shortcut and use home gestures.
+import re
+main_file = root / "app/src/main/java/np/sagarmatha/launcher/MainActivity.kt"
+source = main_file.read_text()
+
+# Remove the footer grid button completely; the dock remains the final home-screen row.
+source, footer_count = re.subn(
+    r'        val footer = LinearLayout\(this\)\.apply \{.*?'
+    r'        root\.addView\(footer, LinearLayout\.LayoutParams\(-1, dp\(48\)\)\)\n?',
+    '',
+    source,
+    count=1,
+    flags=re.S
+)
+if footer_count != 1:
+    raise SystemExit("Expected app drawer footer button not found; refusing to continue")
+
+# Track the start of a gesture at Activity level so child views cannot swallow it.
+if "private var drawerGestureStartX" not in source:
+    source = source.replace(
+        "    private var touchY = 0f\n",
+        "    private var touchY = 0f\n    private var drawerGestureStartX = 0f\n    private var drawerGestureStartY = 0f\n    private var drawerGestureStartedOnHome = false\n",
+        1
+    )
+
+gesture_method = r'''
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                drawerGestureStartX = event.rawX
+                drawerGestureStartY = event.rawY
+                drawerGestureStartedOnHome = !showingDrawer
+            }
+            MotionEvent.ACTION_UP -> {
+                if (drawerGestureStartedOnHome && !showingDrawer) {
+                    val dx = event.rawX - drawerGestureStartX
+                    val dy = event.rawY - drawerGestureStartY
+                    val swipeRight = dx > dp(90) && dx > abs(dy) * 1.15f
+                    // Keep the central widget column vertically scrollable.
+                    // Swipe-up from the lower home/dock area opens the drawer.
+                    val startsInDockZone = drawerGestureStartY >
+                        resources.displayMetrics.heightPixels * 0.62f
+                    val swipeUp = dy < -dp(100) && abs(dy) > abs(dx) * 1.15f &&
+                        startsInDockZone
+                    if (swipeRight || swipeUp) {
+                        drawerGestureStartedOnHome = false
+                        showDrawer("")
+                        return true
+                    }
+                }
+                drawerGestureStartedOnHome = false
+            }
+            MotionEvent.ACTION_CANCEL -> drawerGestureStartedOnHome = false
+        }
+        return super.dispatchTouchEvent(event)
+    }
+
+'''
+if "override fun dispatchTouchEvent(event: MotionEvent)" not in source:
+    anchor = "    private fun renderHome() {"
+    if anchor not in source:
+        raise SystemExit("Could not locate renderHome() to install drawer gesture handler")
+    source = source.replace(anchor, gesture_method + anchor, 1)
+
+# Remove the old footer text links if any survived, and verify the new gesture entry point.
+if "val appDrawerButton" in source or "root.addView(footer" in source:
+    raise SystemExit("Visible app drawer footer button still exists")
+if "swipeRight" not in source or "startsInDockZone" not in source:
+    raise SystemExit("Swipe gesture handler did not apply")
+main_file.write_text(source)
+
+# Bump the Android version for a clean update install.
+app_gradle = root / "app/build.gradle.kts"
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 8", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.6.3"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("Removed bottom app drawer shortcut; added swipe-right and dock-area swipe-up gestures; version 1.6.3.")
