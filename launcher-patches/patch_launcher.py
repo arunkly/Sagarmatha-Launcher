@@ -578,7 +578,7 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
                 setOnClickListener {
                     val filtered = filteredDrawerApps(search.text.toString(), activeCategory)
                     val target = filtered.indexOfFirst {
-                        if (letter == "#") !it.label.firstOrNull().orEmpty().uppercase().firstOrNull().orEmpty().first().isLetter()
+                        if (letter == "#") it.label.firstOrNull()?.isLetter() == false
                         else it.label.trim().startsWith(letter, true)
                     }
                     if (target >= 0) {
@@ -693,13 +693,12 @@ source = source[:drawer_start] + new_drawer + source[drawer_end:]
 if "private fun filteredDrawerApps(" not in source or "private fun drawerCategory(" not in source:
     raise SystemExit("Premium drawer filter helpers missing")
 if "val appDrawerButton" in source:
-    source = re.sub(
-        r'        val footer = LinearLayout\\(this\\)\\.apply \\{.*?        root\\.addView\\(footer, LinearLayout\\.LayoutParams\\(-1, dp\\(48\\)\\)\\)\\n?',
-        '',
-        source,
-        count=1,
-        flags=re.S
-    )
+    footer_start = source.find("        val footer = LinearLayout(this).apply {")
+    footer_end_marker = "        root.addView(footer, LinearLayout.LayoutParams(-1, dp(48)))"
+    footer_end = source.find(footer_end_marker, footer_start)
+    if footer_start >= 0 and footer_end >= 0:
+        footer_end += len(footer_end_marker)
+        source = source[:footer_start] + source[footer_end:]
 
 # Ensure this visual rebuild gets its own Android update version.
 app_gradle = root / "app/build.gradle.kts"
