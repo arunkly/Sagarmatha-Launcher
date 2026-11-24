@@ -1517,3 +1517,384 @@ gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 14", gradle_tex
 gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "2.0.1"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("v2.0.1: long-press dock actions, built-in home widget toggles, centered Devanagari clock/date.")
+
+
+# Phase 2.3: rebuild the home screen to match the approved Sagarmatha reference composition.
+import base64 as _b64
+_asset_dir = root / "app/src/main/res/drawable-nodpi"
+_asset_dir.mkdir(parents=True, exist_ok=True)
+_hero_b64 = """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"""
+(_asset_dir / "sagarmatha_hero.jpg").write_bytes(_b64.b64decode(_hero_b64))
+
+_source = main_file.read_text()
+_home_start = _source.find("    private fun renderHome() {")
+_home_end = _source.find("    private fun updateDateText() {", _home_start)
+if _home_start < 0 or _home_end < 0:
+    raise SystemExit("Cannot locate home screen method for approved visual redesign")
+
+_new_home = r'''
+    private fun renderHome() {
+        showingDrawer = false
+        handler.removeCallbacks(clockTick)
+        window.statusBarColor = Color.rgb(3, 22, 49)
+        window.navigationBarColor = Color.rgb(3, 22, 49)
+
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(4), dp(16), dp(8))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.rgb(3, 22, 49), Color.rgb(5, 35, 69), Color.rgb(3, 22, 49))
+            )
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(dp(16), dp(4) + insets.systemWindowInsetTop, dp(16), dp(8) + insets.systemWindowInsetBottom)
+                insets
+            }
+        }
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val brand = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        brand.addView(TextView(this).apply {
+            text = "🇳🇵  SAGARMATHA"
+            textSize = 16f
+            letterSpacing = .13f
+            setTextColor(Color.rgb(255, 190, 65))
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        })
+        brand.addView(TextView(this).apply {
+            text = if (nepaliMode) "तपाईंको फोन, तपाईंको शैली" else "Your phone, your style"
+            textSize = 10.5f
+            setTextColor(Color.rgb(218, 228, 241))
+        })
+        header.addView(brand, LinearLayout.LayoutParams(0, dp(50), 1f))
+
+        fun headerButton(label: String, description: String, action: () -> Unit): TextView =
+            TextView(this).apply {
+                text = label
+                contentDescription = description
+                textSize = 21f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(255, 193, 67))
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(42, 112, 145, 184))
+                    cornerRadius = dp(18).toFloat()
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(43), dp(43)).apply { leftMargin = dp(7) }
+                setOnClickListener { action() }
+            }
+        header.addView(headerButton(if (nepaliMode) "ने" else "EN", "Change language") {
+            nepaliMode = !nepaliMode
+            savePreferences()
+            renderHome()
+        })
+        header.addView(headerButton("▦", "Widgets") { showWidgetManager() })
+        header.addView(headerButton("⚙", "Settings") { showSettingsScreen() })
+        root.addView(header)
+
+        val scroll = ScrollView(this).apply {
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
+            setPadding(0, dp(3), 0, dp(8))
+        }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        // Hero: large centered Nepali clock, outlined Bikram Sambat date and the
+        // same Everest mountain photograph extracted from the approved reference.
+        val hero = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(-1, dp(222))
+        }
+        val mountain = ImageView(this).apply {
+            setImageResource(R.drawable.sagarmatha_hero)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            alpha = .98f
+        }
+        hero.addView(mountain, FrameLayout.LayoutParams(-1, dp(112), Gravity.BOTTOM))
+        val heroShade = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.rgb(3, 22, 49), Color.argb(0, 3, 22, 49))
+            )
+        }
+        hero.addView(heroShade, FrameLayout.LayoutParams(-1, dp(125), Gravity.TOP))
+
+        val timeAndDate = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(13), 0, 0)
+        }
+        clockView = TextView(this).apply {
+            text = formatSagarmathaClock()
+            textSize = 54f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            includeFontPadding = false
+        }
+        timeAndDate.addView(clockView, LinearLayout.LayoutParams(-1, dp(78)))
+        dateView = TextView(this).apply {
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setPadding(dp(15), dp(7), dp(15), dp(7))
+            background = GradientDrawable().apply {
+                setColor(Color.argb(24, 255, 255, 255))
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), Color.rgb(255, 190, 55))
+            }
+        }
+        timeAndDate.addView(dateView, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(3) })
+        hero.addView(timeAndDate, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+        content.addView(hero)
+
+        // Search field: full-width translucent rounded bar.
+        val search = EditText(this).apply {
+            hint = if (nepaliMode) "एप वा केही खोज्नुहोस्" else "Search apps"
+            setHintTextColor(Color.rgb(207, 218, 232))
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            setSingleLine(true)
+            setPadding(dp(18), 0, dp(16), 0)
+            background = GradientDrawable().apply {
+                setColor(Color.argb(62, 121, 153, 190))
+                cornerRadius = dp(28).toFloat()
+                setStroke(dp(1), Color.argb(105, 210, 224, 244))
+            }
+            setCompoundDrawablesWithIntrinsicBounds(android.R.drawable.ic_menu_search, 0, 0, 0)
+            compoundDrawablePadding = dp(12)
+            setOnFocusChangeListener { _, focused -> if (focused) showDrawer("") }
+            setOnEditorActionListener { _, _, _ -> showDrawer(text.toString()); true }
+            setOnClickListener { showDrawer("") }
+        }
+        content.addView(search, LinearLayout.LayoutParams(-1, dp(54)).apply {
+            topMargin = dp(2); bottomMargin = dp(13)
+        })
+
+        // Four practical quick actions from the reference design.
+        val quickActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.argb(25, 255, 255, 255))
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.argb(80, 186, 208, 235))
+            }
+            setPadding(dp(5), dp(7), dp(5), dp(7))
+        }
+        fun quickAction(glyph: String, title: String, action: () -> Unit) {
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(3), dp(2), dp(3), dp(2))
+                isClickable = true
+                setOnClickListener { action() }
+            }
+            item.addView(TextView(this).apply {
+                text = glyph
+                textSize = 25f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(255, 195, 68))
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(55, 91, 129, 177))
+                    cornerRadius = dp(17).toFloat()
+                }
+            }, LinearLayout.LayoutParams(dp(48), dp(48)))
+            item.addView(TextView(this).apply {
+                text = title
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                setPadding(0, dp(5), 0, 0)
+                maxLines = 1
+            })
+            quickActions.addView(item, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        quickAction("▦", if (nepaliMode) "पात्रो" else "Calendar") {
+            runCatching {
+                startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR))
+            }
+        }
+        quickAction("☀", if (nepaliMode) "मौसम" else "Weather") { showDataSettings() }
+        quickAction("▤", if (nepaliMode) "समाचार" else "News") { showDataSettings() }
+        quickAction("⠿", if (nepaliMode) "एपहरू" else "Apps") { showDrawer("") }
+        content.addView(quickActions, LinearLayout.LayoutParams(-1, dp(91)).apply {
+            bottomMargin = dp(13)
+        })
+
+        // Two side-by-side information cards, matching the supplied reference.
+        val bsDate = runCatching { NepaliCalendarService.todayNepali(nepaliMode) }
+            .getOrElse { if (nepaliMode) "नेपाली मिति उपलब्ध भएन" else "Date unavailable" }
+        val adDate = runCatching { NepaliCalendarService.todayEnglish() }
+            .getOrElse { SimpleDateFormat("EEEE, d MMM yyyy", Locale.ENGLISH).format(Date()) }
+        val infoRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val calendarCard = widgetCard(
+            if (nepaliMode) "▦  आजको पात्रो" else "▦  TODAY'S CALENDAR",
+            if (nepaliMode) toDevanagariDigits(bsDate) else adDate,
+            if (nepaliMode) "आजको तिथि" else "Today's date",
+            "calendar"
+        )
+        calendarCard.layoutParams = LinearLayout.LayoutParams(0, dp(126), 1f).apply {
+            rightMargin = dp(7); bottomMargin = 0
+        }
+        infoRow.addView(calendarCard)
+        val weatherCard = buildWeatherCard()
+        weatherCard.layoutParams = LinearLayout.LayoutParams(0, dp(126), 1f).apply {
+            leftMargin = dp(7); bottomMargin = 0
+        }
+        infoRow.addView(weatherCard)
+        if (showCalendarCard || showWeatherCard) {
+            if (!showCalendarCard) infoRow.removeView(calendarCard)
+            if (!showWeatherCard) infoRow.removeView(weatherCard)
+            content.addView(infoRow, LinearLayout.LayoutParams(-1, dp(126)).apply { bottomMargin = dp(12) })
+        }
+
+        // News remains a live RSS card and retains its existing tap-to-configure action.
+        if (showNewsCard) {
+            val newsHeading = TextView(this).apply {
+                text = if (nepaliMode) "▤  नेपाली समाचार" else "▤  NEPALI NEWS"
+                textSize = 14f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.rgb(255, 190, 55))
+                setPadding(dp(14), dp(10), dp(14), dp(3))
+            }
+            val newsCard = buildNewsCard()
+            newsCard.background = GradientDrawable().apply {
+                setColor(Color.argb(34, 255, 255, 255))
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.argb(78, 186, 208, 235))
+            }
+            newsCard.setPadding(dp(14), dp(8), dp(14), dp(12))
+            val newsContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                background = GradientDrawable().apply {
+                    setColor(Color.argb(24, 255, 255, 255))
+                    cornerRadius = dp(22).toFloat()
+                    setStroke(dp(1), Color.argb(78, 186, 208, 235))
+                }
+            }
+            newsContainer.addView(newsHeading)
+            newsContainer.addView(newsCard)
+            content.addView(newsContainer, LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(12)
+            })
+        }
+
+        if (appFolders.isNotEmpty()) {
+            val folderRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            appFolders.forEach { folder ->
+                folderRow.addView(TextView(this).apply {
+                    text = "▣  " + folder.name
+                    textSize = 12f
+                    setTextColor(Color.WHITE)
+                    background = rounded(Color.argb(48, 255, 255, 255), 14)
+                    setPadding(dp(12), dp(9), dp(12), dp(9))
+                    setOnClickListener { openFolder(folder) }
+                    setOnLongClickListener { confirmDeleteFolder(folder); true }
+                }, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(7) })
+            }
+            content.addView(folderRow)
+        }
+
+        hostedWidgetIds.forEach { id ->
+            val hosted = widgetViews[id] ?: createWidgetHostView(id)
+            if (hosted != null) {
+                (hosted.parent as? ViewGroup)?.removeView(hosted)
+                val holder = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    background = panel()
+                    setPadding(dp(5), dp(5), dp(5), dp(5))
+                }
+                holder.addView(hosted, LinearLayout.LayoutParams(-1, dp(widgetHeightDp)))
+                content.addView(holder, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(7); bottomMargin = dp(7)
+                })
+            }
+        }
+
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        // Five-slot premium dock pinned to the bottom edge.
+        val dock = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.argb(47, 105, 139, 179))
+                cornerRadius = dp(26).toFloat()
+                setStroke(dp(1), Color.argb(95, 186, 208, 235))
+            }
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+            setOnLongClickListener {
+                showDockAppPicker()
+                true
+            }
+        }
+        favorites.mapNotNull { pkg -> appList.find { it.packageName == pkg } }.take(5).forEach { app ->
+            val tile = appTile(app, true)
+            tile.setOnLongClickListener {
+                showDockSlotActions(app, favorites.indexOf(app.packageName))
+                true
+            }
+            dock.addView(tile, LinearLayout.LayoutParams(0, dp(67), 1f))
+        }
+        root.addView(dock, LinearLayout.LayoutParams(-1, dp(78)).apply { topMargin = dp(7) })
+        setContentView(root)
+        handler.post(clockTick)
+    }
+
+    private fun toDevanagariDigits(value: String): String =
+        value.map { ch ->
+            if (ch in '0'..'9') ('०'.code + (ch - '0')).toChar() else ch
+        }.joinToString("")
+
+    private fun formatSagarmathaClock(): String {
+        val value = SimpleDateFormat("h:mm", Locale.ENGLISH).format(Date())
+        return if (nepaliMode) toDevanagariDigits(value) else value
+    }
+
+'''
+_source = _source.substring(0, _home_start) + _new_home + _source.substring(_home_end)
+
+# Center the date pill and show the Bikram Sambat date in Devanagari in Nepali mode.
+_date_start = _source.find("    private fun updateDateText() {")
+_date_end = _source.find("    private fun buildWeatherCard()", _date_start)
+if _date_start < 0 or _date_end < 0:
+    raise SystemExit("Cannot locate date formatter for Nepali home clock")
+_new_date = '''    private fun updateDateText() {
+        dateView?.text = runCatching {
+            if (nepaliMode) toDevanagariDigits(NepaliCalendarService.todayNepali(true))
+            else NepaliCalendarService.todayEnglish()
+        }.getOrElse {
+            val fallback = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH).format(Date())
+            if (nepaliMode) toDevanagariDigits(fallback) else fallback
+        }
+    }
+
+'''
+_source = _source.substring(0, _date_start) + _new_date + _source.substring(_date_end)
+_source = _source.replace(
+    'clockView?.text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())',
+    'clockView?.text = formatSagarmathaClock()'
+)
+_source = _source.replace(
+    'text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())',
+    'text = formatSagarmathaClock()'
+)
+main_file.write_text(_source)
+
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 15", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "2.1.0"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("Sagarmatha Launcher v2.1.0: reference-matched Himalayan home screen and photo hero applied.")
