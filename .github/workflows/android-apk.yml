@@ -51,26 +51,52 @@ jobs:
               raise SystemExit("Expected android/kotlinOptions block not found; refusing an unsafe edit")
           p.write_text(s.replace(old, new, 1))
 
-          # Use the Android-specific published artifact (2.6.2).
+          # Restore the original 2.6.2 artifact and its matching package API.
           app_gradle = Path("android-project/app/build.gradle.kts")
           gs = app_gradle.read_text()
-          gs = gs.replace("io.github.shivathapaa:nepali-date-picker:2.6.2", "io.github.shivathapaa:nepali-date-picker-android:2.6.2")
+          gs = gs.replace("io.github.shivathapaa:nepali-date-picker-android:2.6.2", "io.github.shivathapaa:nepali-date-picker:2.6.2")
           app_gradle.write_text(gs)
 
-          # Correct EditText single-line calls and remove the non-public widget-host extra.
+          # Correct EditText single-line calls and remove the invalid widget-host extra.
+          import re
           main = Path("android-project/app/src/main/java/np/sagarmatha/launcher/MainActivity.kt")
           ms = main.read_text()
           ms = ms.replace("singleLine = true", "setSingleLine(true)")
-          ms = ms.replace('            putExtra(AppWidgetManager.EXTRA_APPWIDGET_HOST_ID, widgetHostId)\\n', "")
+          ms = re.sub(r"^\s*putExtra\(AppWidgetManager\.EXTRA_APPWIDGET_HOST_ID,\s*widgetHostId\)\s*\n", "", ms, flags=re.M)
           main.write_text(ms)
 
-          # Provide the English calendar label using the Android/JDK date formatter.
+          # Use the original 2.6.2 public API for BS and AD date labels.
           service = Path("android-project/app/src/main/java/np/sagarmatha/launcher/NepaliCalendarService.kt")
-          cs = service.read_text()
-          cs = cs.replace("import dev.shivathapaa.nepalidatepickerkmp.NameFormat\\n", "import dev.shivathapaa.nepalidatepickerkmp.NameFormat\\nimport java.text.SimpleDateFormat\\nimport java.util.Date\\nimport java.util.Locale\\n")
-          if "fun todayEnglish()" not in cs:
-              cs = cs.replace("    fun todayNepali(nepali: Boolean): String {", '    fun todayEnglish(): String = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH).format(Date())\\n\\n    fun todayNepali(nepali: Boolean): String {')
-          service.write_text(cs)
+          service.write_text("""package np.sagarmatha.launcher
+
+import dev.shivathapaa.nepalidatepickerkmp.NepaliDateConverter
+import dev.shivathapaa.nepalidatepickerkmp.NepaliDatePickerLang
+import dev.shivathapaa.nepalidatepickerkmp.NameFormat
+
+object NepaliCalendarService {
+    fun todayEnglish(): String {
+        val calendar = NepaliDateConverter.todayEnglishCalendar
+        val weekday = NepaliDateConverter.getWeekdayName(calendar.dayOfWeek, NameFormat.FULL, NepaliDatePickerLang.ENGLISH)
+        val month = NepaliDateConverter.getEnglishMonthName(calendar.month, NameFormat.FULL, NepaliDatePickerLang.ENGLISH)
+        return "$weekday, $month \${calendar.dayOfMonth}, \${calendar.year}"
+    }
+
+    fun todayNepali(nepali: Boolean): String {
+        val calendar = NepaliDateConverter.todayNepaliCalendar
+        val language = if (nepali) NepaliDatePickerLang.NEPALI else NepaliDatePickerLang.ENGLISH
+        val weekday = NepaliDateConverter.getWeekdayName(calendar.dayOfWeek, NameFormat.FULL, language)
+        val month = NepaliDateConverter.getMonthName(calendar.month, NameFormat.FULL, language)
+        val day = if (nepali) calendar.dayOfMonth.toNepaliDigits() else calendar.dayOfMonth.toString()
+        val year = if (nepali) calendar.year.toNepaliDigits() else calendar.year.toString()
+        return "$weekday, $month $day, $year"
+    }
+
+    private fun Int.toNepaliDigits(): String {
+        val digits = "०१२३४५६७८९"
+        return toString().map { ch -> if (ch in '0'..'9') digits[ch - '0'] else ch }.joinToString("")
+    }
+}
+""")
           PY
       - name: Install Android SDK platform 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
