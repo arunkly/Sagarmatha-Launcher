@@ -617,8 +617,7 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
                     text = if (nepaliMode) "एप भेटिएन" else "No apps found"
                     textSize = 14f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
                 }, GridLayout.LayoutParams().apply { width = -1; height = dp(100); columnSpec = GridLayout.spec(0, 4) })
-                return
-            }
+            } else {
             matches.forEach { app ->
                 val tile = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
@@ -655,6 +654,7 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
                     height = dp(99)
                     columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
                 })
+            }
             }
         }
 
