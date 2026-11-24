@@ -34,6 +34,7 @@ jobs:
           test -f android-project/settings.gradle.kts
           test -f android-project/app/build.gradle.kts
           sed -i 's/compileSdk = 35/compileSdk = 36/' android-project/app/build.gradle.kts
+          sed -i 's/2.0.21/2.3.0/' android-project/build.gradle.kts
       - name: Install Android SDK platform 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Build debug APK
