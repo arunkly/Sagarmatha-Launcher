@@ -1858,6 +1858,9 @@ _new_home = r'''
         return if (nepaliMode) toDevanagariDigits(value) else value
     }
 
+    // Backward-compatible name used by the existing one-second clock ticker.
+    private fun formatHomeClock(): String = formatSagarmathaClock()
+
 '''
 _source = _source[:_home_start] + _new_home + _source[_home_end:]
 
