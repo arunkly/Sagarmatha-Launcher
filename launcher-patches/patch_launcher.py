@@ -175,17 +175,17 @@ import re
 manifest = root / "app/src/main/AndroidManifest.xml"
 manifest_text = manifest.read_text()
 main_home_pattern = re.compile(
-    r'(<intent-filter>\\s*<action android:name="android.intent.action.MAIN"\\s*/>\\s*'
-    r'<category android:name="android.intent.category.HOME"\\s*/>)'
+    r'(<intent-filter>\s*<action android:name="android.intent.action.MAIN"\s*/>\s*'
+    r'<category android:name="android.intent.category.HOME"\s*/>)'
 )
 if not re.search(
-    r'<intent-filter>\\s*<action android:name="android.intent.action.MAIN"\\s*/>\\s*'
-    r'<category android:name="android.intent.category.HOME"\\s*/>\\s*'
-    r'<category android:name="android.intent.category.LAUNCHER"\\s*/>',
+    r'<intent-filter>\s*<action android:name="android.intent.action.MAIN"\s*/>\s*'
+    r'<category android:name="android.intent.category.HOME"\s*/>\s*'
+    r'<category android:name="android.intent.category.LAUNCHER"\s*/>',
     manifest_text
 ):
     manifest_text, count = main_home_pattern.subn(
-        r'\\1\\n            <category android:name="android.intent.category.LAUNCHER" />',
+        r'\1\n            <category android:name="android.intent.category.LAUNCHER" />',
         manifest_text,
         count=1
     )
@@ -194,7 +194,7 @@ if not re.search(
 if 'android:icon="@mipmap/ic_launcher"' not in manifest_text:
     manifest_text = manifest_text.replace(
         'android:label="Sagarmatha Launcher"',
-        'android:label="Sagarmatha Launcher"\\n        android:icon="@mipmap/ic_launcher"\\n        android:roundIcon="@mipmap/ic_launcher_round"'
+        'android:label="Sagarmatha Launcher"\n        android:icon="@mipmap/ic_launcher"\n        android:roundIcon="@mipmap/ic_launcher_round"'
     )
 manifest.write_text(manifest_text)
 
