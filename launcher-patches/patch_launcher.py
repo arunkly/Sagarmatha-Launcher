@@ -1271,3 +1271,13 @@ gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 13", gradle_text, 
 gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "2.0.0"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("Sagarmatha Launcher v2.0.0: practical navy/gold home and settings UI applied.")
+
+
+# Phase 2.1 compile correction: apply alpha to the existing theme color safely.
+home_source = main_file.read_text()
+home_source = home_source.replace(
+    "setHintTextColor(Color.argb(170, theme.muted)); setTextColor(theme.text); textSize = 14f",
+    "setHintTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(theme.muted, 170)); setTextColor(theme.text); textSize = 14f"
+)
+main_file.write_text(home_source)
+print("Fixed Color.argb overload in Home Screen search field.")
