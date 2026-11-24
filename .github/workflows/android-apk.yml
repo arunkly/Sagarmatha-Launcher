@@ -3,6 +3,9 @@ name: Android APK Build
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'Sagarmatha-Launcher-Phase5-Android-Studio-Project.zip'
+      - '.github/workflows/android-apk.yml'
   workflow_dispatch:
 
 permissions:
