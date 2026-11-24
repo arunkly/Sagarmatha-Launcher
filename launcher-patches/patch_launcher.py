@@ -515,6 +515,7 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
             Triple("Finance", if (nepaliMode) "वित्त" else "Finance", "▤")
         )
         var activeCategory = "All"
+        var populateDrawerGrid: () -> Unit = {}
         val chipViews = linkedMapOf<String, TextView>()
         fun updateChipStyles() {
             chipViews.forEach { (key, chip) ->
@@ -608,7 +609,7 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
         }
         root.addView(dots, LinearLayout.LayoutParams(-1, dp(23)))
 
-        fun populateDrawerGrid() {
+        populateDrawerGrid = {
             grid.removeAllViews()
             val matches = filteredDrawerApps(search.text.toString(), activeCategory)
             if (matches.isEmpty()) {
