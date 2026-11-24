@@ -710,3 +710,93 @@ gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.7.0"', grad
 app_gradle.write_text(gradle_text)
 main_file.write_text(source)
 print("Premium Sagarmatha App Drawer implemented; version 1.7.0.")
+
+
+
+# Phase 1 architecture foundation: separate installed-app discovery from Activity UI.
+repository_file = root / "app/src/main/java/np/sagarmatha/launcher/LauncherAppRepository.kt"
+repository_file.write_text("""package np.sagarmatha.launcher
+
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+
+/**
+ * Single source of truth for installed, launchable applications.
+ * Keeps package discovery out of MainActivity and explicitly retains Sagarmatha itself.
+ */
+class LauncherAppRepository(private val context: Context) {
+    fun loadApps(): List<LaunchApp> {
+        val pm = context.packageManager
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val resolved = if (Build.VERSION.SDK_INT >= 33) {
+            pm.queryIntentActivities(
+                launcherIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_ALL.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(launcherIntent, PackageManager.MATCH_ALL)
+        }
+
+        val apps = resolved.mapNotNull { resolveInfo ->
+            val activity = resolveInfo.activityInfo ?: return@mapNotNull null
+            runCatching {
+                LaunchApp(
+                    resolveInfo.loadLabel(pm).toString(),
+                    activity.packageName,
+                    resolveInfo.loadIcon(pm)
+                )
+            }.getOrNull()
+        }.distinctBy { it.packageName }.toMutableList()
+
+        // Some OEM package managers omit the active HOME package from launcher queries.
+        if (apps.none { it.packageName == context.packageName }) {
+            runCatching {
+                val ownInfo = pm.getApplicationInfo(context.packageName, 0)
+                apps.add(
+                    LaunchApp(
+                        pm.getApplicationLabel(ownInfo).toString(),
+                        context.packageName,
+                        pm.getApplicationIcon(ownInfo)
+                    )
+                )
+            }
+        }
+        return apps.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.label.trim() })
+    }
+}
+""")
+
+source = main_file.read_text()
+source, loader_count = re.subn(
+    r"    private fun loadApps\(\): List<LaunchApp> \{.*?\n    \}\n",
+    "    private fun loadApps(): List<LaunchApp> = LauncherAppRepository(this).loadApps()\n",
+    source,
+    count=1,
+    flags=re.S
+)
+if loader_count != 1:
+    raise SystemExit("Could not modularize loadApps(); expected exactly one existing function")
+drawer_marker = "    private fun showDrawer(initialQuery: String) {"
+if drawer_marker not in source:
+    raise SystemExit("Could not find showDrawer() for app catalog refresh")
+source = source.replace(
+    drawer_marker,
+    drawer_marker + "\n        // Refresh the catalog whenever the drawer opens so newly installed apps appear.",
+    1
+)
+source = source.replace(
+    "        // Refresh the catalog whenever the drawer opens so newly installed apps appear.\n",
+    "        // Refresh the catalog whenever the drawer opens so newly installed apps appear.\n        appList = loadApps()\n",
+    1
+)
+main_file.write_text(source)
+
+app_gradle = root / "app/build.gradle.kts"
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 10", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "1.8.0"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("Sagarmatha Launcher Phase 1 architecture foundation applied; version 1.8.0.")
