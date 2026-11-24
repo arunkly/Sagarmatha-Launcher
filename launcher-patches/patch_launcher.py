@@ -168,18 +168,29 @@ st=styles.read_text().replace('''        <item name="android:windowBackground">#
 styles.write_text(st)
 print("Launcher settings, photo wallpaper, dock management and icon metadata patched.")
 
-# Register this application in the regular app drawer as well as as a HOME app.
+# Register the HOME activity as a regular launcher app too.
+# Do not search the whole manifest for CATEGORY_LAUNCHER: it may already
+# occur inside <queries>, which does not register an app-drawer activity.
+import re
 manifest = root / "app/src/main/AndroidManifest.xml"
 manifest_text = manifest.read_text()
-launcher_category = '<category android:name="android.intent.category.LAUNCHER" />'
-home_category = '<category android:name="android.intent.category.HOME" />'
-if launcher_category not in manifest_text:
-    if home_category not in manifest_text:
-        raise SystemExit("HOME category missing; cannot safely add launcher entry")
-    manifest_text = manifest_text.replace(
-        home_category,
-        home_category + '\\n            ' + launcher_category
+main_home_pattern = re.compile(
+    r'(<intent-filter>\\s*<action android:name="android.intent.action.MAIN"\\s*/>\\s*'
+    r'<category android:name="android.intent.category.HOME"\\s*/>)'
+)
+if not re.search(
+    r'<intent-filter>\\s*<action android:name="android.intent.action.MAIN"\\s*/>\\s*'
+    r'<category android:name="android.intent.category.HOME"\\s*/>\\s*'
+    r'<category android:name="android.intent.category.LAUNCHER"\\s*/>',
+    manifest_text
+):
+    manifest_text, count = main_home_pattern.subn(
+        r'\\1\\n            <category android:name="android.intent.category.LAUNCHER" />',
+        manifest_text,
+        count=1
     )
+    if count != 1:
+        raise SystemExit("Could not locate the HOME activity MAIN intent-filter")
 if 'android:icon="@mipmap/ic_launcher"' not in manifest_text:
     manifest_text = manifest_text.replace(
         'android:label="Sagarmatha Launcher"',
