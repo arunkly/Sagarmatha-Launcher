@@ -39,16 +39,16 @@ jobs:
           from pathlib import Path
           p = Path("android-project/app/build.gradle.kts")
           s = p.read_text()
-          old = '    kotlinOptions { jvmTarget = "17" }'
-          new = '''}
+          old = '    kotlinOptions { jvmTarget = "17" }\n}'
+          new = """}
 
           kotlin {
               compilerOptions {
                   jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
               }
-          }'''
+          }"""
           if old not in s:
-              raise SystemExit("Expected Kotlin JVM target line was not found; refusing an unsafe edit")
+              raise SystemExit("Expected android/kotlinOptions block not found; refusing an unsafe edit")
           p.write_text(s.replace(old, new, 1))
           PY
       - name: Install Android SDK platform 36
