@@ -1277,7 +1277,7 @@ print("Sagarmatha Launcher v2.0.0: practical navy/gold home and settings UI appl
 home_source = main_file.read_text()
 home_source = home_source.replace(
     "setHintTextColor(Color.argb(170, theme.muted)); setTextColor(theme.text); textSize = 14f",
-    "setHintTextColor(androidx.core.graphics.ColorUtils.setAlphaComponent(theme.muted, 170)); setTextColor(theme.text); textSize = 14f"
+    "setHintTextColor(Color.argb(170, Color.red(theme.muted), Color.green(theme.muted), Color.blue(theme.muted))); setTextColor(theme.text); textSize = 14f"
 )
 main_file.write_text(home_source)
 print("Fixed Color.argb overload in Home Screen search field.")
