@@ -88,3 +88,10 @@ if "NepaliDateConverter.todayEnglish()" in calendar_file.read_text():
     raise SystemExit("Invalid Nepali date converter call remains")
 
 print("Source preparation passed all structural checks.")
+
+# Apply maintained launcher feature patch after reconstructing the verified base ZIP.
+from pathlib import Path as _Path
+_feature_patch = _Path("launcher-patches/patch_launcher.py")
+if not _feature_patch.is_file():
+    raise SystemExit("Missing launcher feature patch")
+exec(compile(_feature_patch.read_text(), str(_feature_patch), "exec"), {})
