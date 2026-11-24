@@ -1373,12 +1373,7 @@ if old_date not in source:
 source = source.replace(old_date, new_date, 1)
 
 helper_anchor = '    private fun updateDateText() {\n'
-helpers = '''    private fun toDevanagariDigits(value: String): String =
-        value.map { ch ->
-            if (ch in '0'..'9') ('०'.code + (ch - '0')).toChar() else ch
-        }.joinToString("")
-
-    private fun formatHomeClock(): String {
+helpers = '''    private fun formatHomeClock(): String {
         val value = SimpleDateFormat("h:mm", Locale.ENGLISH).format(Date())
         return if (nepaliMode) toDevanagariDigits(value) else value
     }
@@ -1894,7 +1889,7 @@ _source = _source.replace(
 main_file.write_text(_source)
 
 gradle_text = app_gradle.read_text()
-gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 15", gradle_text, count=1)
-gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "2.1.0"', gradle_text, count=1)
+gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 15", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "2.1.0"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("Sagarmatha Launcher v2.1.0: reference-matched Himalayan home screen and photo hero applied.")
