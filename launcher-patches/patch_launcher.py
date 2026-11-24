@@ -1390,7 +1390,7 @@ source = source.replace(helper_anchor, helpers + helper_anchor, 1)
 
 # Show only enabled built-in home cards.
 source = source.replace(
-    '        content.addView(widgetCard(if (nepaliMode) "आजको पात्रो" else "TODAY\\'S CALENDAR", nepaliDate, englishDate, "calendar"))\n        content.addView(buildWeatherCard())\n        content.addView(buildNewsCard())',
+    """        content.addView(widgetCard(if (nepaliMode) "आजको पात्रो" else "TODAY'S CALENDAR", nepaliDate, englishDate, "calendar"))\n        content.addView(buildWeatherCard())\n        content.addView(buildNewsCard())""",
     '''        if (showCalendarCard) {
             content.addView(widgetCard(if (nepaliMode) "आजको पात्रो" else "TODAY'S CALENDAR", nepaliDate, englishDate, "calendar"))
         }
