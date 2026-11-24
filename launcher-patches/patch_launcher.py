@@ -462,7 +462,7 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
             setPadding(dp(8), dp(5), 0, 0)
-            shadowLayer = dp(3).toFloat(), 0f, dp(2).toFloat(), Color.BLACK
+            setShadowLayer(dp(3).toFloat(), 0f, dp(2).toFloat(), Color.BLACK)
         })
         hero.addView(heroContent, FrameLayout.LayoutParams(-1, -1))
         root.addView(hero, LinearLayout.LayoutParams(-1, dp(126)))
@@ -704,8 +704,8 @@ if "val appDrawerButton" in source:
 # Ensure this visual rebuild gets its own Android update version.
 app_gradle = root / "app/build.gradle.kts"
 gradle_text = app_gradle.read_text()
-gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 9", gradle_text, count=1)
-gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "1.7.0"', gradle_text, count=1)
+gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 9", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.7.0"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 main_file.write_text(source)
 print("Premium Sagarmatha App Drawer implemented; version 1.7.0.")
