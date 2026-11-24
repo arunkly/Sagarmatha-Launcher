@@ -1281,3 +1281,239 @@ home_source = home_source.replace(
 )
 main_file.write_text(home_source)
 print("Fixed Color.argb overload in Home Screen search field.")
+
+
+# Phase 2.2: user-controlled dock, built-in home cards, and centered Devanagari clock/date.
+source = main_file.read_text()
+
+# Persist visibility of the three built-in home cards.
+source = source.replace(
+    '    private var widgetHeightDp = 220\n',
+    '''    private var widgetHeightDp = 220
+    private var showCalendarCard = true
+    private var showWeatherCard = true
+    private var showNewsCard = true
+''',
+    1
+)
+source = source.replace(
+    '        widgetHeightDp = prefs.getInt("widget_height", 220).coerceIn(120, 420)\n',
+    '''        widgetHeightDp = prefs.getInt("widget_height", 220).coerceIn(120, 420)
+        showCalendarCard = prefs.getBoolean("show_calendar_card", true)
+        showWeatherCard = prefs.getBoolean("show_weather_card", true)
+        showNewsCard = prefs.getBoolean("show_news_card", true)
+''',
+    1
+)
+source = source.replace(
+    '            .putInt("widget_height", widgetHeightDp)\n',
+    '''            .putInt("widget_height", widgetHeightDp)
+            .putBoolean("show_calendar_card", showCalendarCard)
+            .putBoolean("show_weather_card", showWeatherCard)
+            .putBoolean("show_news_card", showNewsCard)
+''',
+    1
+)
+
+# Use Devanagari numerals for the live clock in Nepali mode.
+source = source.replace(
+    '            clockView?.text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())',
+    '            clockView?.text = formatHomeClock()',
+    1
+)
+source = source.replace(
+    '            text = SimpleDateFormat("h:mm", Locale.getDefault()).format(Date())',
+    '            text = formatHomeClock()',
+    1
+)
+source = source.replace(
+    '            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL\n            setPadding(dp(2), dp(12), dp(2), dp(12))',
+    '''            orientation = LinearLayout.VERTICAL
+            gravity = if (nepaliMode) Gravity.CENTER else Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(12), dp(2), dp(12))''',
+    1
+)
+source = source.replace(
+    '            textSize = 42f; setTextColor(theme.text)\n            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)',
+    '''            textSize = 42f; setTextColor(theme.text)
+            gravity = if (nepaliMode) Gravity.CENTER else Gravity.START
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)''',
+    1
+)
+source = source.replace(
+    '        dateView = TextView(this).apply { textSize = 12f; setTextColor(theme.muted); setPadding(0, dp(2), 0, 0) }\n        dateBlock.addView(dateView)',
+    '''        dateView = TextView(this).apply {
+            textSize = 12f; setTextColor(theme.muted); setPadding(0, dp(2), 0, 0)
+            gravity = if (nepaliMode) Gravity.CENTER else Gravity.START
+        }
+        dateBlock.addView(dateView, LinearLayout.LayoutParams(-1, -2))''',
+    1
+)
+
+# The Nepali home shows the Bikram Sambat date only, centered with Devanagari digits.
+old_date = '''        dateView?.text = runCatching {
+            val bs = NepaliCalendarService.todayNepali(nepaliMode)
+            val ad = NepaliCalendarService.todayEnglish()
+            if (nepaliMode) "$bs  •  $ad" else "$ad  •  $bs"
+        }.getOrElse {
+            SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(Date())
+        }'''
+new_date = '''        dateView?.text = runCatching {
+            if (nepaliMode) {
+                toDevanagariDigits(NepaliCalendarService.todayNepali(true))
+            } else {
+                NepaliCalendarService.todayEnglish()
+            }
+        }.getOrElse {
+            val fallback = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.ENGLISH).format(Date())
+            if (nepaliMode) toDevanagariDigits(fallback) else fallback
+        }'''
+if old_date not in source:
+    raise SystemExit("Date display block did not match; refusing partial date patch")
+source = source.replace(old_date, new_date, 1)
+
+helper_anchor = '    private fun updateDateText() {\n'
+helpers = '''    private fun toDevanagariDigits(value: String): String =
+        value.map { ch ->
+            if (ch in '0'..'9') ('०'.code + (ch - '0')).toChar() else ch
+        }.joinToString("")
+
+    private fun formatHomeClock(): String {
+        val value = SimpleDateFormat("h:mm", Locale.ENGLISH).format(Date())
+        return if (nepaliMode) toDevanagariDigits(value) else value
+    }
+
+'''
+if helper_anchor not in source:
+    raise SystemExit("Clock/date helper insertion point not found")
+source = source.replace(helper_anchor, helpers + helper_anchor, 1)
+
+# Show only enabled built-in home cards.
+source = source.replace(
+    '        content.addView(widgetCard(if (nepaliMode) "आजको पात्रो" else "TODAY\\'S CALENDAR", nepaliDate, englishDate, "calendar"))\n        content.addView(buildWeatherCard())\n        content.addView(buildNewsCard())',
+    '''        if (showCalendarCard) {
+            content.addView(widgetCard(if (nepaliMode) "आजको पात्रो" else "TODAY'S CALENDAR", nepaliDate, englishDate, "calendar"))
+        }
+        if (showWeatherCard) content.addView(buildWeatherCard())
+        if (showNewsCard) content.addView(buildNewsCard())''',
+    1
+)
+
+# Let users configure built-in cards at the top of the widget manager.
+widget_description_anchor = '        root.addView(description)\n\n        val add = TextView(this).apply {'
+toggle_block = '''        root.addView(description)
+
+        val builtInHeading = TextView(this).apply {
+            text = if (nepaliMode) "होम स्क्रिनका कार्डहरू" else "HOME SCREEN CARDS"
+            textSize = 10f; letterSpacing = .12f; setTextColor(theme.accent)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(10), 0, dp(7))
+        }
+        root.addView(builtInHeading)
+
+        fun builtInToggle(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                background = panel(); setPadding(dp(12), dp(4), dp(12), dp(4))
+            }
+            row.addView(TextView(this).apply {
+                text = title; textSize = 13f; setTextColor(theme.text)
+            }, LinearLayout.LayoutParams(0, dp(46), 1f))
+            row.addView(Switch(this).apply {
+                isChecked = checked
+                setOnCheckedChangeListener { _, value -> onChange(value) }
+            })
+            root.addView(row, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(6) })
+        }
+        builtInToggle(if (nepaliMode) "नेपाली पात्रो" else "Calendar", showCalendarCard) {
+            showCalendarCard = it; savePreferences()
+        }
+        builtInToggle(if (nepaliMode) "मौसम" else "Weather", showWeatherCard) {
+            showWeatherCard = it; savePreferences()
+        }
+        builtInToggle(if (nepaliMode) "नेपाली समाचार" else "Nepali news", showNewsCard) {
+            showNewsCard = it; savePreferences()
+        }
+
+        val add = TextView(this).apply {'''
+if widget_description_anchor not in source:
+    raise SystemExit("Widget manager insertion point not found")
+source = source.replace(widget_description_anchor, toggle_block, 1)
+
+# Long-press a dock item to remove or replace it; long-press dock background to add.
+source = source.replace(
+    '''            val tile = appTile(app, true)
+            tile.setOnLongClickListener {
+                val clip = ClipData.newPlainText("favorite-package", app.packageName)
+                tile.startDragAndDrop(clip, View.DragShadowBuilder(tile), null, 0)
+                true
+            }''',
+    '''            val tile = appTile(app, true)
+            tile.setOnLongClickListener {
+                showDockSlotActions(app, favorites.indexOf(app.packageName))
+                true
+            }''',
+    1
+)
+source = source.replace(
+    '''            setPadding(dp(5), dp(5), dp(5), dp(5))
+            setOnDragListener { _, event ->''',
+    '''            setPadding(dp(5), dp(5), dp(5), dp(5))
+            isLongClickable = true
+            setOnLongClickListener {
+                showDockAppPicker()
+                true
+            }
+            setOnDragListener { _, event ->''',
+    1
+)
+
+dock_methods_anchor = '    private fun showDockAppPicker() {\n'
+dock_methods = '''    private fun showDockSlotActions(app: LaunchApp, index: Int) {
+        val actions = if (nepaliMode) arrayOf("एप हटाउनुहोस्", "अर्को एपले बदल्नुहोस्", "रद्द गर्नुहोस्")
+            else arrayOf("Remove app", "Replace with another app", "Cancel")
+        AlertDialog.Builder(this)
+            .setTitle(app.label)
+            .setItems(actions) { _, which ->
+                when (which) {
+                    0 -> {
+                        if (index in favorites.indices) favorites.removeAt(index)
+                        savePreferences(); renderHome()
+                    }
+                    1 -> showDockReplacementPicker(index)
+                }
+            }
+            .show()
+    }
+
+    private fun showDockReplacementPicker(index: Int) {
+        val choices = appList.filter { !favorites.contains(it.packageName) }
+        if (choices.isEmpty()) {
+            Toast.makeText(this, if (nepaliMode) "बदल्न अर्को एप उपलब्ध छैन" else "No other apps available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (nepaliMode) "एप बदल्नुहोस्" else "Replace dock app")
+            .setItems(choices.map { it.label }.toTypedArray()) { _, which ->
+                if (index in favorites.indices) {
+                    favorites[index] = choices[which].packageName
+                    savePreferences(); renderHome()
+                }
+            }
+            .setNegativeButton(if (nepaliMode) "रद्द" else "Cancel", null)
+            .show()
+    }
+
+'''
+if dock_methods_anchor not in source:
+    raise SystemExit("Dock action insertion point not found")
+source = source.replace(dock_methods_anchor, dock_methods + dock_methods_anchor, 1)
+
+main_file.write_text(source)
+
+# Version 2.0.1 contains these user-facing controls and localization changes.
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 14", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "2.0.1"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+print("v2.0.1: long-press dock actions, built-in home widget toggles, centered Devanagari clock/date.")
