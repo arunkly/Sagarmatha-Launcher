@@ -95,3 +95,5 @@ _feature_patch = _Path("launcher-patches/patch_launcher.py")
 if not _feature_patch.is_file():
     raise SystemExit("Missing launcher feature patch")
 exec(compile(_feature_patch.read_text(), str(_feature_patch), "exec"), {})
+
+# Trigger rebuild after fixing v2.0.1 patch script quoting.
