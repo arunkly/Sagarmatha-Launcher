@@ -563,7 +563,8 @@ new_drawer = r'''    private fun showDrawer(initialQuery: String) {
             useDefaultMargins = false
         }
         gridScroll.addView(grid)
-        contentRow.addView(gridScroll, LinearLayout.LayoutParams(0, 0, 1f))
+        // Fill available drawer height; zero height made every app tile invisible.
+        contentRow.addView(gridScroll, LinearLayout.LayoutParams(0, -1, 1f))
         val alphabet = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
