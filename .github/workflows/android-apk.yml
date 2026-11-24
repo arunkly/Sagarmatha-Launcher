@@ -6,6 +6,7 @@ on:
     paths:
       - 'upload-parts/**'
       - '.github/workflows/android-apk.yml'
+      - '.github/scripts/prepare_project.py'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +31,7 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Reconstruct and prepare the original Phase 5 project
+      - name: Reconstruct Phase 5 project
         shell: bash
         run: |
           set -euo pipefail
@@ -38,95 +39,8 @@ jobs:
           unzip -tq phase5.zip
           unzip -q phase5.zip -d android-project
 
-          python3 - <<'PY'
-          from pathlib import Path
-
-          root = Path("android-project")
-          root_gradle = root / "build.gradle.kts"
-          app_gradle = root / "app/build.gradle.kts"
-          main_file = root / "app/src/main/java/np/sagarmatha/launcher/MainActivity.kt"
-          calendar_file = root / "app/src/main/java/np/sagarmatha/launcher/NepaliCalendarService.kt"
-
-          # Align the project toolchain with the published 2.6.2 Android artifact.
-          rg = root_gradle.read_text()
-          rg = rg.replace('id("com.android.application") version "8.6.1"', 'id("com.android.application") version "8.13.2"')
-          rg = rg.replace('id("org.jetbrains.kotlin.android") version "2.0.21"', 'id("org.jetbrains.kotlin.android") version "2.3.0"')
-          root_gradle.write_text(rg)
-
-          ag = app_gradle.read_text()
-          ag = ag.replace("compileSdk = 35", "compileSdk = 36")
-          ag = ag.replace('implementation("io.github.shivathapaa:nepali-date-picker:2.6.2")',
-                          'implementation("io.github.shivathapaa:nepali-date-picker-android:2.6.2")')
-          old = '    kotlinOptions { jvmTarget = "17" }\n}'
-          new = '''}
-
-          kotlin {
-              compilerOptions {
-                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-              }
-          }'''
-          if old not in ag:
-              raise SystemExit("Cannot safely migrate app/build.gradle.kts: expected original kotlinOptions block missing")
-          ag = ag.replace(old, new, 1)
-          app_gradle.write_text(ag)
-
-          # EditText exposes setSingleLine(), not a singleLine Kotlin property.
-          ms = main_file.read_text()
-          ms = ms.replace("singleLine = true", "setSingleLine(true)")
-          # The widget picker only needs the allocated app-widget ID; Android has no public
-          # AppWidgetManager.EXTRA_APPWIDGET_HOST_ID constant.
-          ms = ms.replace('            putExtra(AppWidgetManager.EXTRA_APPWIDGET_HOST_ID, widgetHostId)\n', '')
-          main_file.write_text(ms)
-
-          # Use the exact public package names and formatting API from v2.6.2.
-          calendar_file.write_text("""package np.sagarmatha.launcher
-
-import dev.shivathapaa.nepalidatepickerkmp.calendar_model.NepaliDateConverter
-import dev.shivathapaa.nepalidatepickerkmp.data.NepaliDateFormatStyle
-import dev.shivathapaa.nepalidatepickerkmp.data.NepaliDateLocale
-import dev.shivathapaa.nepalidatepickerkmp.data.NepaliDatePickerLang
-
-object NepaliCalendarService {
-    fun todayNepali(nepali: Boolean): String {
-        val locale = NepaliDateLocale(
-            language = if (nepali) NepaliDatePickerLang.NEPALI else NepaliDatePickerLang.ENGLISH,
-            dateFormat = NepaliDateFormatStyle.FULL
-        )
-        return NepaliDateConverter.formatNepaliDate(
-            NepaliDateConverter.todayNepaliCalendar,
-            locale
-        )
-    }
-
-    fun todayEnglish(): String {
-        val locale = NepaliDateLocale(
-            language = NepaliDatePickerLang.ENGLISH,
-            dateFormat = NepaliDateFormatStyle.FULL
-        )
-        return NepaliDateConverter.formatEnglishDate(
-            NepaliDateConverter.todayEnglishCalendar,
-            locale
-        )
-    }
-}
-""")
-
-          # Fail early if any of the known invalid references remain.
-          if "singleLine = true" in ms:
-              raise SystemExit("Unfixed singleLine property remains in MainActivity.kt")
-          if "EXTRA_APPWIDGET_HOST_ID" in ms:
-              raise SystemExit("Unfixed EXTRA_APPWIDGET_HOST_ID remains in MainActivity.kt")
-          if "NepaliDateConverter.todayEnglish()" in calendar_file.read_text():
-              raise SystemExit("Unexpected invalid converter call remains")
-          print("Prepared source with verified v2.6.2 API and aligned Gradle toolchain.")
-          PY
-
-          echo "=== Root Gradle ==="
-          cat android-project/build.gradle.kts
-          echo "=== App Gradle ==="
-          cat android-project/app/build.gradle.kts
-          echo "=== Calendar service ==="
-          cat android-project/app/src/main/java/np/sagarmatha/launcher/NepaliCalendarService.kt
+      - name: Prepare verified source and toolchain
+        run: python3 .github/scripts/prepare_project.py
 
       - name: Install Android SDK 36
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
@@ -135,7 +49,16 @@ object NepaliCalendarService {
         working-directory: android-project
         run: gradle --no-daemon --stacktrace assembleDebug
 
+      - name: Upload prepared source for diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sagarmatha-prepared-source
+          path: android-project/
+          if-no-files-found: warn
+
       - name: Upload debug APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: Sagarmatha-Launcher-debug-apk
