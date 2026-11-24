@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'upload-parts/**'
+      - 'launcher-patches/**'
       - '.github/workflows/android-apk.yml'
       - '.github/scripts/prepare_project.py'
   workflow_dispatch:
