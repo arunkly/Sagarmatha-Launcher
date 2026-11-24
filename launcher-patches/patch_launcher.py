@@ -354,3 +354,358 @@ gradle_text = re.sub(r"versionCode\s*=\s*\d+", "versionCode = 8", gradle_text, c
 gradle_text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "1.6.3"', gradle_text, count=1)
 app_gradle.write_text(gradle_text)
 print("Removed bottom app drawer shortcut; added swipe-right and dock-area swipe-up gestures; version 1.6.3.")
+
+
+# Premium App Drawer UI implementation based on the approved Sagarmatha concept.
+import re
+
+main_file = root / "app/src/main/java/np/sagarmatha/launcher/MainActivity.kt"
+source = main_file.read_text()
+drawer_start = source.find("    private fun showDrawer(initialQuery: String) {")
+drawer_end = source.find("    private fun showWidgetManager() {", drawer_start)
+if drawer_start < 0 or drawer_end < 0:
+    raise SystemExit("Could not safely locate showDrawer() boundaries")
+
+new_drawer = r'''    private fun showDrawer(initialQuery: String) {
+        showingDrawer = true
+        handler.removeCallbacks(clockTick)
+        window.statusBarColor = Color.rgb(4, 20, 48)
+        window.navigationBarColor = Color.rgb(4, 20, 48)
+
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), 0, dp(16), dp(8))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(3, 18, 48), Color.rgb(5, 39, 91), Color.rgb(9, 27, 66))
+            )
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(dp(16), insets.systemWindowInsetTop, dp(16), dp(8) + insets.systemWindowInsetBottom)
+                insets
+            }
+        }
+
+        // Hero header: offline Himalayan artwork drawn in Canvas.
+        val hero = FrameLayout(this)
+        val mountainArt = object : View(this) {
+            private val sky = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            private val ridge = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            private val snow = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            override fun onDraw(canvas: android.graphics.Canvas) {
+                super.onDraw(canvas)
+                val w = width.toFloat()
+                val h = height.toFloat()
+                if (w <= 0f || h <= 0f) return
+                sky.shader = android.graphics.LinearGradient(
+                    0f, 0f, w, h,
+                    intArrayOf(Color.rgb(7, 30, 76), Color.rgb(20, 61, 139), Color.rgb(5, 22, 55)),
+                    null, android.graphics.Shader.TileMode.CLAMP
+                )
+                canvas.drawRect(0f, 0f, w, h, sky)
+                sky.shader = android.graphics.RadialGradient(
+                    w * .76f, h * .48f, w * .42f,
+                    intArrayOf(Color.argb(150, 255, 180, 104), Color.argb(35, 87, 135, 255), Color.TRANSPARENT),
+                    null, android.graphics.Shader.TileMode.CLAMP
+                )
+                canvas.drawCircle(w * .76f, h * .48f, w * .42f, sky)
+                sky.shader = null
+                fun peak(points: List<Pair<Float, Float>>, color: Int, paint: android.graphics.Paint) {
+                    val path = android.graphics.Path()
+                    path.moveTo(points.first().first * w, points.first().second * h)
+                    points.drop(1).forEach { path.lineTo(it.first * w, it.second * h) }
+                    path.lineTo(w, h); path.lineTo(0f, h); path.close()
+                    paint.color = color
+                    canvas.drawPath(path, paint)
+                }
+                peak(listOf(0f to .88f, .23f to .42f, .34f to .67f, .55f to .22f, .68f to .57f, .83f to .38f, 1f to .76f),
+                    Color.rgb(35, 72, 126), ridge)
+                peak(listOf(.23f to .42f, .30f to .52f, .34f to .67f, .55f to .22f, .62f to .45f, .55f to .37f, .50f to .46f, .46f to .36f),
+                    Color.rgb(223, 235, 246), snow)
+                peak(listOf(0f to .91f, .31f to .62f, .46f to .84f, .70f to .46f, .83f to .72f, 1f to .55f),
+                    Color.rgb(9, 36, 79), ridge)
+                peak(listOf(.31f to .62f, .38f to .70f, .46f to .84f, .70f to .46f, .75f to .61f, .70f to .57f, .66f to .64f),
+                    Color.rgb(173, 203, 229), snow)
+            }
+        }
+        hero.addView(mountainArt, FrameLayout.LayoutParams(-1, -1))
+        val heroContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(6), dp(2), dp(8))
+        }
+        val brandRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        brandRow.addView(TextView(this).apply {
+            text = "🇳🇵"
+            textSize = 23f
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        brandRow.addView(TextView(this).apply {
+            text = "SAGARMATHA"
+            textSize = 15f
+            letterSpacing = .18f
+            setTextColor(Color.rgb(255, 190, 68))
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(0, dp(42), 1f))
+        val close = TextView(this).apply {
+            text = "×"
+            textSize = 32f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = rounded(Color.argb(55, 255, 255, 255), 28)
+            setOnClickListener { renderHome() }
+        }
+        brandRow.addView(close, LinearLayout.LayoutParams(dp(42), dp(42)))
+        heroContent.addView(brandRow)
+        heroContent.addView(TextView(this).apply {
+            text = if (nepaliMode) "तपाईंका एपहरू" else "Your apps"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            setPadding(dp(8), dp(5), 0, 0)
+            shadowLayer = dp(3).toFloat(), 0f, dp(2).toFloat(), Color.BLACK
+        })
+        hero.addView(heroContent, FrameLayout.LayoutParams(-1, -1))
+        root.addView(hero, LinearLayout.LayoutParams(-1, dp(126)))
+
+        // Search field.
+        val searchRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable().apply {
+                setColor(Color.argb(62, 160, 190, 255))
+                cornerRadius = dp(30).toFloat()
+                setStroke(dp(1), Color.argb(100, 190, 211, 255))
+            }
+            setPadding(dp(15), 0, dp(15), 0)
+        }
+        searchRow.addView(TextView(this).apply {
+            text = "⌕"; textSize = 31f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(dp(42), dp(50)))
+        val search = EditText(this).apply {
+            hint = if (nepaliMode) "एप खोज्नुहोस्" else "Search apps"
+            setHintTextColor(Color.argb(185, 238, 243, 255))
+            setTextColor(Color.WHITE)
+            textSize = 16f
+            setSingleLine(true)
+            background = null
+            setPadding(dp(6), 0, dp(6), 0)
+            setText(initialQuery)
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+        }
+        searchRow.addView(search, LinearLayout.LayoutParams(0, dp(52), 1f))
+        root.addView(searchRow, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(7) })
+
+        val categoryScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val categoryRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, dp(10))
+        }
+        categoryScroll.addView(categoryRow)
+        root.addView(categoryScroll, LinearLayout.LayoutParams(-1, dp(57)))
+
+        val categoryItems = listOf(
+            Triple("All", if (nepaliMode) "सबै" else "All", "▦"),
+            Triple("Communication", if (nepaliMode) "सञ्चार" else "Communication", "◌"),
+            Triple("Entertainment", if (nepaliMode) "मनोरञ्जन" else "Entertainment", "▷"),
+            Triple("Tools", if (nepaliMode) "उपकरण" else "Tools", "▤"),
+            Triple("Finance", if (nepaliMode) "वित्त" else "Finance", "▤")
+        )
+        var activeCategory = "All"
+        val chipViews = linkedMapOf<String, TextView>()
+        fun updateChipStyles() {
+            chipViews.forEach { (key, chip) ->
+                val selected = key == activeCategory
+                chip.background = rounded(
+                    if (selected) Color.rgb(255, 184, 48) else Color.argb(48, 170, 198, 255),
+                    24
+                )
+                chip.setTextColor(if (selected) Color.rgb(25, 34, 57) else Color.WHITE)
+                chip.alpha = if (selected) 1f else .92f
+            }
+        }
+        categoryItems.forEach { (key, label, glyph) ->
+            val chip = TextView(this).apply {
+                text = if (key == "All") label else "$glyph  $label"
+                textSize = 13f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                gravity = Gravity.CENTER
+                setPadding(dp(16), dp(9), dp(16), dp(9))
+                setOnClickListener {
+                    activeCategory = key
+                    updateChipStyles()
+                    populateDrawerGrid()
+                }
+            }
+            chipViews[key] = chip
+            categoryRow.addView(chip, LinearLayout.LayoutParams(-2, dp(40)).apply {
+                rightMargin = dp(8)
+            })
+        }
+        updateChipStyles()
+
+        val contentRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+        }
+        val gridScroll = ScrollView(this).apply {
+            isFillViewport = false
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val grid = GridLayout(this).apply {
+            columnCount = 4
+            setPadding(0, dp(5), 0, dp(10))
+            useDefaultMargins = false
+        }
+        gridScroll.addView(grid)
+        contentRow.addView(gridScroll, LinearLayout.LayoutParams(0, 0, 1f))
+        val alphabet = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(3), dp(2), 0, dp(2))
+        }
+        val letters = ('A'..'Z').map { it.toString() } + "#"
+        letters.forEach { letter ->
+            val item = TextView(this).apply {
+                text = letter
+                textSize = 10f
+                gravity = Gravity.CENTER
+                setTextColor(Color.argb(220, 235, 241, 255))
+                setOnClickListener {
+                    val filtered = filteredDrawerApps(search.text.toString(), activeCategory)
+                    val target = filtered.indexOfFirst {
+                        if (letter == "#") !it.label.firstOrNull().orEmpty().uppercase().firstOrNull().orEmpty().first().isLetter()
+                        else it.label.trim().startsWith(letter, true)
+                    }
+                    if (target >= 0) {
+                        gridScroll.post {
+                            grid.getChildAt(target)?.let { tile -> gridScroll.smoothScrollTo(0, tile.top) }
+                        }
+                    }
+                }
+            }
+            alphabet.addView(item, LinearLayout.LayoutParams(dp(20), dp(20)))
+        }
+        contentRow.addView(alphabet, LinearLayout.LayoutParams(dp(22), -1))
+        root.addView(contentRow, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        val dots = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(7), 0, dp(5))
+        }
+        repeat(3) { index ->
+            val dot = View(this).apply {
+                background = rounded(if (index == 0) Color.rgb(255, 184, 48) else Color.argb(105, 220, 230, 250), 20)
+            }
+            dots.addView(dot, LinearLayout.LayoutParams(dp(if (index == 0) 11 else 9), dp(9)).apply {
+                leftMargin = dp(4); rightMargin = dp(4)
+            })
+        }
+        root.addView(dots, LinearLayout.LayoutParams(-1, dp(23)))
+
+        fun populateDrawerGrid() {
+            grid.removeAllViews()
+            val matches = filteredDrawerApps(search.text.toString(), activeCategory)
+            if (matches.isEmpty()) {
+                grid.addView(TextView(this).apply {
+                    text = if (nepaliMode) "एप भेटिएन" else "No apps found"
+                    textSize = 14f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                }, GridLayout.LayoutParams().apply { width = -1; height = dp(100); columnSpec = GridLayout.spec(0, 4) })
+                return
+            }
+            matches.forEach { app ->
+                val tile = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setPadding(dp(2), dp(7), dp(2), dp(5))
+                    setOnClickListener { launch(app) }
+                    setOnLongClickListener {
+                        if (!favorites.contains(app.packageName) && favorites.size < 5) {
+                            favorites.add(app.packageName)
+                            savePreferences()
+                            Toast.makeText(this@MainActivity, if (nepaliMode) "डकमा थपियो" else "Added to dock", Toast.LENGTH_SHORT).show()
+                        }
+                        true
+                    }
+                }
+                val icon = ImageView(this).apply {
+                    setImageDrawable(app.icon)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                    background = rounded(Color.argb(18, 255, 255, 255), 18)
+                    setPadding(dp(2), dp(2), dp(2), dp(2))
+                }
+                tile.addView(icon, LinearLayout.LayoutParams(dp(56), dp(56)))
+                tile.addView(TextView(this).apply {
+                    text = app.label
+                    textSize = 11.5f
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(0, dp(5), 0, 0)
+                }, LinearLayout.LayoutParams(-1, dp(23)))
+                grid.addView(tile, GridLayout.LayoutParams().apply {
+                    width = 0
+                    height = dp(99)
+                    columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                })
+            }
+        }
+
+        // Keep the grid population function accessible to the category/search controls.
+        populateDrawerGrid()
+        search.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { populateDrawerGrid() }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+        setContentView(root)
+    }
+
+    private fun filteredDrawerApps(query: String, category: String): List<LaunchApp> {
+        val q = query.trim()
+        return appList.filter { app ->
+            val queryMatch = q.isBlank() || app.label.contains(q, true) || app.packageName.contains(q, true)
+            val categoryMatch = category == "All" || drawerCategory(app) == category
+            queryMatch && categoryMatch
+        }
+    }
+
+    private fun drawerCategory(app: LaunchApp): String {
+        val key = (app.label + " " + app.packageName).lowercase(Locale.ROOT)
+        return when {
+            listOf("phone", "message", "whatsapp", "telegram", "messenger", "gmail", "mail", "teams", "chat", "facebook", "contacts", "truecaller").any { key.contains(it) } -> "Communication"
+            listOf("youtube", "music", "spotify", "netflix", "game", "ball", "video", "tiktok", "photos", "gallery", "recorder").any { key.contains(it) } -> "Entertainment"
+            listOf("bank", "esewa", "khalti", "wallet", "pay", "finance", "binance", "karobar", "money").any { key.contains(it) } -> "Finance"
+            else -> "Tools"
+        }
+    }
+
+'''
+source = source[:drawer_start] + new_drawer + source[drawer_end:]
+
+# Add a small helper for the approved category/app drawer filtering behavior.
+if "private fun filteredDrawerApps(" not in source or "private fun drawerCategory(" not in source:
+    raise SystemExit("Premium drawer filter helpers missing")
+if "val appDrawerButton" in source:
+    source = re.sub(
+        r'        val footer = LinearLayout\\(this\\)\\.apply \\{.*?        root\\.addView\\(footer, LinearLayout\\.LayoutParams\\(-1, dp\\(48\\)\\)\\)\\n?',
+        '',
+        source,
+        count=1,
+        flags=re.S
+    )
+
+# Ensure this visual rebuild gets its own Android update version.
+app_gradle = root / "app/build.gradle.kts"
+gradle_text = app_gradle.read_text()
+gradle_text = re.sub(r"versionCode\\s*=\\s*\\d+", "versionCode = 9", gradle_text, count=1)
+gradle_text = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "1.7.0"', gradle_text, count=1)
+app_gradle.write_text(gradle_text)
+main_file.write_text(source)
+print("Premium Sagarmatha App Drawer implemented; version 1.7.0.")
